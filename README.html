@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>md2doc</title>
+<style>
+:root {
+  color-scheme: light;
+}
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic",
+    "Noto Naskh Arabic", "Amiri", Tahoma, Arial, sans-serif;
+  line-height: 1.65;
+  max-width: 860px;
+  margin: 2.5rem auto;
+  padding: 0 1.5rem;
+  color: #1d1f23;
+  font-size: 16px;
+}
+[dir="rtl"] { text-align: right; }
+[dir="auto"] { text-align: start; unicode-bidi: plaintext; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin-top: 1.8em; }
+h1 { font-size: 2rem; border-bottom: 2px solid #e3e5e8; padding-bottom: .3em; }
+h2 { font-size: 1.5rem; border-bottom: 1px solid #e3e5e8; padding-bottom: .25em; }
+code, pre {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+code { background: #f1f2f4; padding: .15em .4em; border-radius: 4px; font-size: .9em; }
+pre {
+  background: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+blockquote {
+  border-inline-start: 4px solid #d8dbe0; margin-inline-start: 0;
+  padding-inline-start: 1em; color: #555; font-style: italic;
+}
+table { border-collapse: collapse; width: 100%; margin: 1.2em 0; }
+table[dir="rtl"] { direction: rtl; }
+.table-wrap { overflow-x: auto; }
+th, td { border: 1px solid #d8dbe0; padding: .5em .8em; }
+th { background: #f1f2f4; }
+tr:nth-child(even) { background: #fafbfc; }
+img { max-width: 100%; }
+.mermaid { text-align: center; margin: 1.5em 0; }
+.mermaid-fallback {
+  background: #fff8e1; border: 1px solid #f0d878; border-radius: 6px;
+  padding: 1em; font-size: .85em;
+}
+a { color: #0969da; }
+hr { border: none; border-top: 1px solid #d8dbe0; margin: 2em 0; }
+</style>
+</head>
+<body>
+<h1 dir="auto">md2doc</h1>
+<p dir="auto">A CLI that converts Markdown (<code>.md</code>) files into Word (<code>.docx</code>) or HTML, with
+clean table rendering, Mermaid.js diagram support, and full Arabic / RTL
+text handling in both output formats.</p>
+<h2 dir="auto">Why this stack</h2>
+<div class="table-wrap">
+<table dir="auto">
+<thead>
+<tr>
+<th dir="auto">Concern</th>
+<th dir="auto">Choice</th>
+<th dir="auto">Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td dir="auto">Language</td>
+<td dir="auto">Python</td>
+<td dir="auto">Best-supported ecosystem for both OOXML (<code>python-docx</code>) and Markdown ASTs; one language for both writers.</td>
+</tr>
+<tr>
+<td dir="auto">Markdown parsing</td>
+<td dir="auto"><code>markdown-it-py</code> (+ <code>mdit-py-plugins</code>)</td>
+<td dir="auto">Mature CommonMark/GFM implementation with a token stream (not just an HTML string), which both writers need — the DOCX writer doesn't go through HTML at all. GFM tables and strikethrough come from the bundled <code>gfm-like</code> preset.</td>
+</tr>
+<tr>
+<td dir="auto">DOCX generation</td>
+<td dir="auto"><code>python-docx</code></td>
+<td dir="auto">Direct OOXML control. Word's bidi/complex-script text model (<code>w:bidi</code>, <code>w:rtl</code>, <code>w:cs</code>) isn't exposed by python-docx's high-level API, so <code>docx_writer.py</code> talks to the underlying XML directly — this is what makes correct Arabic shaping/alignment possible.</td>
+</tr>
+<tr>
+<td dir="auto">Diagrams</td>
+<td dir="auto">Mermaid.js via <code>mermaid-cli</code> (local) or <code>mermaid.ink</code> (hosted fallback) for DOCX; <code>mermaid.js</code> loaded client-side for HTML</td>
+<td dir="auto">DOCX needs a static raster image; HTML can render live, interactive/zoomable SVG instead of a flat image, which is strictly better when the output is viewed in a browser.</td>
+</tr>
+<tr>
+<td dir="auto">RTL detection</td>
+<td dir="auto">Unicode code-point ranges (no ICU dependency)</td>
+<td dir="auto">Arabic/Hebrew/Syriac blocks are static and well-known; a regex-free range check is enough to choose direction per paragraph, table cell, and even per inline run within mixed-language text — and it needs zero system dependencies.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p dir="auto">A <code>pandoc</code>-based approach was considered, but pandoc has no native Mermaid
+support and only partial control over per-run bidi styling in its DOCX
+writer — both would still need this same custom pre/post-processing, so a
+direct Python implementation ended up simpler than wrapping pandoc.</p>
+<h2 dir="auto">Install</h2>
+<pre><code class="language-bash">pip install -r requirements.txt
+# or, for the `md2doc` console command:
+pip install -e .
+</code></pre>
+<p dir="auto">Optional, for the highest-fidelity offline diagram rendering:</p>
+<pre><code class="language-bash">npm install -g @mermaid-js/mermaid-cli   # provides `mmdc`
+</code></pre>
+<p dir="auto">Without <code>mmdc</code>, Mermaid diagrams used in <strong>DOCX</strong> output are rendered via the
+public <a href="https://mermaid.ink">mermaid.ink</a> API instead (requires network; use
+<code>--no-network</code> to disable and keep diagrams as labelled source blocks
+instead). <strong>HTML</strong> output never needs either backend by default — diagrams
+render live in the browser via mermaid.js — unless you pass
+<code>--html-mermaid-render</code> to bake them into static images instead.</p>
+<h2 dir="auto">Usage</h2>
+<pre><code class="language-bash"># single file, explicit format
+md2doc report.md --format docx
+md2doc report.md --format html
+
+# or run as a module if not installed as a script
+python -m md2doc report.md --format docx
+
+# no --format: interactive prompt (TTY only)
+md2doc report.md
+
+# a whole directory, recursively, mirroring structure into ./docs_html
+md2doc ./docs --format html -o ./docs_html
+
+# choose a specific output file
+md2doc report.md -f docx -o build/report.docx
+
+# pick the Arabic complex-script font baked into the .docx
+md2doc report.md -f docx --arabic-font &quot;Noto Naskh Arabic&quot;
+
+# fully offline (no mermaid.ink fallback, no remote image fetches)
+md2doc report.md -f docx --no-network
+</code></pre>
+<p dir="auto">Try it on the bundled example:</p>
+<pre><code class="language-bash">md2doc examples/sample.md -f html -o /tmp/sample.html
+md2doc examples/sample.md -f docx -o /tmp/sample.docx
+</code></pre>
+<h2 dir="auto">Feature notes</h2>
+<ul>
+<li><strong>Tables</strong>: standard and GFM-aligned (<code>:--</code>, <code>:-:</code>, <code>--:</code>) tables render
+with borders, header shading, and per-cell RTL detection in both formats.
+Plain Markdown has no colspan/rowspan syntax, so merged cells aren't
+supported — none of <code>pandoc</code>, <code>marked</code>, or any other Markdown-based tool
+support this either, since it isn't representable in the source format.</li>
+<li><strong>Mermaid diagrams</strong>: any fenced block tagged <code>mermaid</code> is detected
+automatically. HTML gets interactive client-rendered SVG; DOCX gets a
+centered embedded PNG sized to fit the page width.</li>
+<li><strong>Arabic / RTL</strong>: paragraph, heading, list item, and table-cell direction
+is set automatically from the dominant script of their text (<code>dir=&quot;rtl&quot;</code>
+in HTML, <code>w:bidi</code>/<code>w:rtl</code> in DOCX). Mixed Arabic/Latin text is split into
+per-script runs so each part gets correct direction, alignment, and font
+— including inside a single sentence. HTML ships a font stack with
+Arabic-capable fallbacks (Noto Naskh/Sans Arabic, Amiri) pulled from
+Google Fonts; DOCX embeds a complex-script font reference (<code>--arabic-font</code>,
+default <code>Arial</code>) that must be installed on the machine opening the
+document to render correctly — point it at whatever Arabic font you use
+(e.g. <code>Noto Naskh Arabic</code>, <code>Amiri</code>, <code>Traditional Arabic</code>).</li>
+</ul>
+<h2 dir="auto">Project layout</h2>
+<pre><code>md2doc/
+  parser.py        Markdown -&gt; token stream (markdown-it-py)
+  lang.py           Unicode-range RTL/Arabic detection + bidi run splitting
+  mermaid.py        Mermaid -&gt; PNG/SVG (mmdc local, mermaid.ink fallback)
+  html_writer.py     tokens -&gt; standalone HTML document
+  docx_writer.py     tokens -&gt; python-docx Document (direct OOXML for bidi)
+  cli.py             argument parsing, file/directory walking
+</code></pre>
+<h2 dir="auto">Tests</h2>
+<pre><code class="language-bash">python -m tests.test_basic
+</code></pre>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.js";
+  mermaid.initialize({ startOnLoad: true, securityLevel: "strict" });
+</script>
+</body>
+</html>

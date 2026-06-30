@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md2doc"
+version = "1.0.0"
+description = "Convert Markdown to Word (.docx) or HTML, with tables, Mermaid diagrams, and Arabic/RTL support."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-docx>=1.1.0",
+    "markdown-it-py>=3.0.0",
+    "mdit-py-plugins>=0.4.0",
+    "linkify-it-py>=2.0.0",
+    "Pillow>=10.0.0",
+]
+
+[project.scripts]
+md2doc = "md2doc.cli:main"
+
+[tool.setuptools]
+packages = ["md2doc"]
